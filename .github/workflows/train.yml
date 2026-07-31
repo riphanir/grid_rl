@@ -1,0 +1,68 @@
+name: تدريب الوكيل (Train Grid World Agent)
+
+# يمكن تشغيله يدوياً من تبويب Actions، أو تلقائياً حسب جدول زمني،
+# أو عند أي تعديل على كود المشروع (باستثناء ملفات النموذج نفسها
+# حتى لا يسبب commit النموذج تشغيلاً لا نهائياً للـ workflow).
+on:
+  workflow_dispatch:
+    inputs:
+      episodes:
+        description: "عدد محاولات التدريب في هذه التشغيلة"
+        required: false
+        default: "3000"
+  schedule:
+    # تدريب تلقائي يومياً الساعة 3:00 صباحاً UTC (عدّل أو احذف حسب رغبتك)
+    - cron: "0 3 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "**.py"
+      - ".github/workflows/train.yml"
+
+permissions:
+  contents: write  # مطلوب حتى يقدر الـ workflow يعمل commit/push للنموذج المحدَّث
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: تحميل الريبو (Checkout)
+        uses: actions/checkout@v4
+
+      - name: تجهيز بايثون
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # لا توجد مكتبات خارجية، لكن هذه الخطوة موجودة كعادة قياسية
+      - name: تثبيت المتطلبات (لا يوجد شيء فعلياً)
+        run: pip install -r requirements.txt
+
+      - name: تدريب الوكيل (يكمل من النموذج المحفوظ إن وُجد)
+        run: |
+          python3 train.py \
+            --episodes "${{ github.event.inputs.episodes || '3000' }}" \
+            --no-demo
+
+      - name: حفظ النموذج المحدَّث في الريبو (commit + push)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add trained_agent.json training_stats.json
+          if git diff --cached --quiet; then
+            echo "لا يوجد تغيير في النموذج - تخطي الـ commit."
+          else
+            git commit -m "🤖 تحديث النموذج المدرَّب تلقائياً (تشغيلة #${{ github.run_number }})"
+            git push
+          fi
+
+      - name: رفع النموذج كـ Artifact أيضاً (نسخة احتياطية لكل تشغيلة)
+        uses: actions/upload-artifact@v4
+        with:
+          name: trained-agent-run-${{ github.run_number }}
+          path: |
+            trained_agent.json
+            training_stats.json
+          retention-days: 30
+          
