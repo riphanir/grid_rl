@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+
+# ملاحظة: trained_agent.json و training_stats.json يُحفظان عمداً
+# داخل الريبو (لا يُتجاهلان) حتى يستمر تعلّم الوكيل بين التشغيلات
+# المختلفة، سواء محلياً أو عبر GitHub Actions.
